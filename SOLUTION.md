@@ -36,7 +36,7 @@
 
 ## Which bits of the setup do you think you could automate and why?
 
-> The entire server setup could be automated using a script, as I can imagine it getting quite tedious to set up mutliple servers all the time. The entire server setup can be done through CLI, so it is possible to script this.
+> The entire server setup could be automated using a script (or terraform), as I can imagine it getting quite tedious to set up mutliple servers all the time. The entire server setup can be done through CLI, so it is possible to script this.
 
 ## Add an image to the repository that shows your browser hitting the API and listing learners. Link that image within your SOLUTION.md markdown document
 
@@ -44,4 +44,132 @@
 
 ## If you completed the extension exercise and used the AWS CLI to undertake the AWS actions, include a section called **AWS Commands** in your SOLUTION.md that outlines the commands you used
 
->
+1.  Create a security group
+
+```
+aws ec2 create-security-group \
+--group-name learners-api-sg \
+--description "learners-api-sg" \
+--vpc-id <vpc-id>
+```
+
+2. Set Security Group Permissions
+
+```
+aws ec2 authorize-security-group-ingress \
+--group-id <security-group-id> \
+--protocol tcp \
+--port 3000 \
+--cidr 0.0.0.0/0 \
+&& aws ec2 authorize-security-group-ingress \
+--group-id <security-group-id> \
+--ip-permissions IpProtocol=tcp,FromPort=3000,ToPort=3000,Ipv6Ranges="[{CidrIpv6="::/0"}]" \
+&& aws ec2 authorize-security-group-ingress \
+--group-id <security-group-id> \
+--protocol tcp \
+--port 80 \
+--cidr 0.0.0.0/0 \
+&& aws ec2 authorize-security-group-ingress \
+--group-id <security-group-id> \
+--ip-permissions IpProtocol=tcp,FromPort=80,ToPort=80,Ipv6Ranges="[{CidrIpv6="::/0"}]" \
+&& aws ec2 authorize-security-group-ingress \
+--group-id <security-group-id> \
+--protocol tcp \
+--port 22 \
+--cidr <local-ip>
+```
+
+3. Launch an Ec2 instance
+
+```
+aws ec2 run-instances \
+--image-id ami-09744628bed84e434 \
+--instance-type t2.micro \
+--key-name <your-key-pair> \
+--security-group-ids <security-group-id> \
+--tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value="api-server-001"}]' \
+&& aws ec2 run-instances \
+--image-id ami-09744628bed84e434 \
+--instance-type t2.micro \
+--key-name <your-key-pair> \
+--security-group-ids <security-group-id> \
+--tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value="api-server-002"}]'
+```
+
+4. SSH into each instance and install the required packages
+
+- 4.1 - SSH
+
+```
+ssh -i /path/key-pair-name.pem ubuntu@instance-public-dns-name
+```
+
+- 4.2 - install packages
+
+```
+sudo apt update && sudo apt install nodejs && sudo apt install npm && sudo npm install pm2 -g
+```
+
+- 4.3 - clone the API repo, enter the directory, and install the dependencies
+
+```
+git clone https://github.com/USER/example-repo.git && cd /path-to-directory && npm install
+```
+
+- 4.4 - start the server
+
+```
+pm2 start src/index.js && exit
+```
+
+Repeat for the second server
+
+5. Setup the Target Group
+
+- 5.1 - create the group
+
+```
+aws elbv2 create-target-group \
+--name api-server-targetgroup \
+--protocol HTTP \
+--port 3000 \
+--target-type instance \
+--vpc-id vpc-0810289a43394ca8f \
+--health-check-protocol HTTP \
+--health-check-path /health-check
+```
+
+- 5.2 - register the instances to the target group
+
+```
+aws elbv2 register-targets \
+--target-group-arn <target-group-arn> \
+--targets Id=<target-1> Id=<target-2>
+```
+
+6. Setup the Load Balancer
+
+- 6.1 - Create the Load Balancer
+
+```
+aws elbv2 create-load-balancer \
+--name api-server-loadbalancer \
+--subnets <subnet-1> <subnet-2> <subnet-3> \
+--type application \
+--scheme internet-facing \
+--ip-address-type ipv4 \
+--security-groups <security-group>
+```
+
+- 6.2 - Create a listener
+
+```
+aws elbv2 create-listener \
+--load-balancer-arn <load-balancer-arn> \
+--protocol HTTP \
+--port 80
+--default-actions Type=forward,TargetGroupArn=<target-group-arn>
+
+```
+
+7. Have a cup of tea, you deserve it!
