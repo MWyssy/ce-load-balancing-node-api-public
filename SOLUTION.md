@@ -28,7 +28,7 @@
 
 ## Currently the application listens on port 3000, this isn't a standard HTTP port - what two ports would be better to use?
 
-> 80 or 8080
+> 80 or 443
 
 ## When the API is deployed behind a load balancer, if you add multiple learners and then re-try **GET**ting the learners, sometimes it shows the learners you have added other times it doesn't. Why is that?
 
