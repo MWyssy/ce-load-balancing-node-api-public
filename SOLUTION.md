@@ -124,6 +124,29 @@ pm2 start src/index.js && exit
 
 Repeat for the second server
 
+OR create an AMI and then create new servers using it:
+
+- 4.5 - create an AMI
+
+```
+aws ec2 create-image \
+--instance-id <instance-id> \
+--name <name> \
+--description <description>
+```
+
+- 4.6 - launch a new instance using the AMI
+
+```
+aws ec2 run-instances \
+--image-id <ami-id> \
+--count <however-many-you-want> \
+--instance-type t2.micro \
+--key-name <key-pair-name> \
+--security-group-ids <security-group-id> \
+--user-data file://<user-data.txt>
+```
+
 5. Setup the Target Group
 
 - 5.1 - create the group
